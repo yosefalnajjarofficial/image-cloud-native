@@ -12,6 +12,7 @@ import * as Permissions from 'expo-permissions';
 import * as firebase from 'firebase/app';
 import 'firebase/storage';
 import 'firebase/firestore';
+
 import config from './config';
 
 firebase.initializeApp(config);
@@ -25,6 +26,7 @@ export default class App extends React.Component {
 
   async componentDidMount() {
     this.getPermissionAsync();
+    // Getting the images urls from the db
     const snapshot = await firebase
       .firestore()
       .collection('posts')
@@ -36,25 +38,30 @@ export default class App extends React.Component {
 
   uploadImage = async () => {
     this.setState({ uploading: true });
-    const blob = await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.onload = function() {
-        resolve(xhr.response);
-      };
-      xhr.onerror = function() {
-        reject(new TypeError('Network request failed'));
-      };
-      xhr.responseType = 'blob';
-      xhr.open('GET', this.state.image, true);
-      xhr.send(null);
-    });
     try {
+      // Creating a blob from the selected image
+      const blob = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = function() {
+          resolve(xhr.response);
+        };
+        xhr.onerror = function() {
+          reject(new TypeError('Network request failed'));
+        };
+        xhr.responseType = 'blob';
+        xhr.open('GET', this.state.image, true);
+        xhr.send(null);
+      });
+
+      // Making a file name
       const ext = this.state.image.split('.').pop();
       const fileName = `${new Date()}.${ext}`;
+      // Uploading the image to firebase storage
       const snapshot = await firebase
         .storage()
         .ref(`images/${fileName}`)
         .put(blob);
+
       const url = await snapshot.ref.getDownloadURL();
       // when we're done sending it, close and release the blob
       blob.close();
@@ -65,7 +72,10 @@ export default class App extends React.Component {
         .set({
           imageUrl: url
         });
+
       this.setState({ uploading: false });
+
+      // Getting the images urls from the db
       const dataSnapshot = await firebase
         .firestore()
         .collection('posts')
@@ -90,8 +100,9 @@ export default class App extends React.Component {
 
   imagePicker = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All
+      mediaTypes: ImagePicker.MediaTypeOptions.All // allowing all media types
     });
+
     if (!result.cancelled) {
       this.setState({ image: result.uri });
       this.uploadImage();
@@ -125,14 +136,14 @@ export default class App extends React.Component {
                     onPress={this.imagePicker}
                     title="Select A Photo"
                     color="#841584"
-                    accessibilityLabel="select a photo by pressing this buttom"
+                    accessibilityLabel="select a photo by pressing this button"
                   />
                   <Button
                     style={styles.button}
                     onPress={this.takeImage}
                     title="Take A Photo"
                     color="#841584"
-                    accessibilityLabel="select a photo by pressing this buttom"
+                    accessibilityLabel="select a photo by pressing this button"
                   />
                 </View>
                 <View style={styles.posts}>
@@ -141,7 +152,7 @@ export default class App extends React.Component {
                       <Image
                         key={post.id}
                         source={{ uri: post.imageUrl }}
-                        style={{ height: 200, width: 200 }}
+                        style={styles.post}
                       />
                     ))}
                 </View>
@@ -176,5 +187,6 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 20
-  }
+  },
+  post: { height: 200, width: 200 }
 });
